@@ -1,53 +1,20 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
-const radioStations = require("../data/radio-stations.js");
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("radio")
-        .setDescription("Stream radio Indonesia secara live")
+        .setDescription("Stream radio secara live menggunakan URL custom")
         .addStringOption((option) =>
             option
-                .setName("station")
-                .setDescription("Pilih stasiun radio")
+                .setName("url")
+                .setDescription("Masukkan URL / Link live streaming radio")
                 .setRequired(true)
-                .setAutocomplete(true)
         ),
 
-    async autocomplete(interaction) {
-        const focusedValue = interaction.options.getFocused().toLowerCase();
-        const filtered = radioStations
-            .filter(
-                (s) =>
-                    s.name.toLowerCase().includes(focusedValue) ||
-                    s.city.toLowerCase().includes(focusedValue) ||
-                    s.genre.toLowerCase().includes(focusedValue)
-            )
-            .slice(0, 25);
-
-        await interaction
-            .respond(
-                filtered.map((s) => ({
-                    name: `📻 ${s.name} — ${s.genre} (${s.city})`,
-                    value: s.name,
-                }))
-            )
-            .catch(() => {});
-    },
-
     async execute(interaction, client) {
-        const stationName = interaction.options.getString("station");
-        const station = radioStations.find(
-            (s) => s.name.toLowerCase() === stationName.toLowerCase()
-        );
-
-        if (!station) {
-            return interaction.reply({
-                content: "❌ Stasiun radio tidak ditemukan. Silakan pilih dari daftar autocomplete.",
-                flags: 64,
-            });
-        }
-
+        const streamUrl = interaction.options.getString("url");
         const channel = interaction.member.voice.channel;
+        
         if (!channel) {
             return interaction.reply({
                 content: "❌ Kamu harus berada di voice channel!",
@@ -70,25 +37,23 @@ module.exports = {
 
         let res;
         try {
-            // Set radio metadata before playing
-            const currentIndex = radioStations.findIndex(s => s.name === station.name);
+            // Set radio metadata
             player.data.set("isRadio", true);
-            player.data.set("radioIndex", currentIndex);
-            player.data.set("radioName", station.name);
+            player.data.set("radioName", "Custom URL Radio");
 
-            res = await client.kazagumo.search(station.url, {
+            res = await client.kazagumo.search(streamUrl, {
                 requester: interaction.user,
             });
 
             if (!res.tracks.length) {
                 return interaction.editReply(
-                    "❌ Gagal memuat stream radio. Stasiun mungkin sedang offline."
+                    "❌ Gagal memuat stream radio. URL mungkin sedang offline, diblokir, atau menggunakan ekstensi yang tidak didukung Lavalink."
                 );
             }
         } catch (e) {
             console.error("Radio stream error:", e);
             return interaction.editReply(
-                "❌ Terjadi error saat memuat stream radio."
+                "❌ Terjadi error saat menghubungkan ke link tersebut."
             );
         }
 
@@ -111,12 +76,10 @@ module.exports = {
             : "#2b2d31";
 
         const embed = new EmbedBuilder()
-            .setTitle("📻 Radio Live")
-            .setDescription(`Sedang memutar **${station.name}**`)
+            .setTitle("📻 Custom Radio Live")
+            .setDescription(`Sedang memutar stream dari URL:\n${streamUrl.substring(0, 100)}...`)
             .setColor(embedColor)
             .addFields(
-                { name: "🎵 Genre", value: station.genre, inline: true },
-                { name: "📍 Kota", value: station.city, inline: true },
                 { name: "🔴 Status", value: "Live Streaming", inline: true }
             )
             .setFooter({

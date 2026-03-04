@@ -203,20 +203,10 @@ client.kazagumo.on("playerStart", async (player, track) => {
   if (isRadio) {
     const radioRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId("radio_prev")
-        .setLabel("Prev")
-        .setEmoji("⏮️")
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
         .setCustomId("stop")
         .setLabel("Stop")
         .setEmoji("⏹️")
         .setStyle(ButtonStyle.Danger),
-      new ButtonBuilder()
-        .setCustomId("radio_next")
-        .setLabel("Next")
-        .setEmoji("⏭️")
-        .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId("volume")
         .setLabel("Volume")
