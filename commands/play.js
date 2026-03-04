@@ -59,6 +59,7 @@ module.exports = {
         
         let res;
         try {
+            player.data.delete("isRadio");
             res = await client.kazagumo.search(query, { requester: interaction.user });
             if (!res.tracks.length) return interaction.editReply("Song not found!");
         } catch (e) {

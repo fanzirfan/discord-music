@@ -120,6 +120,44 @@ module.exports = {
               await interaction.reply({ content: "The queue is empty.", flags: 64 });
           }
           break;
+        case "radio_prev":
+        case "radio_next":
+          const isRadioAction = player.data.get("isRadio");
+          if (!isRadioAction) {
+              return interaction.reply({ content: "❌ Not playing radio.", flags: 64 });
+          }
+          
+          await interaction.deferReply();
+          
+          const radioStations = require("../data/radio-stations.js");
+          let currentIndex = player.data.get("radioIndex") || 0;
+          
+          if (interaction.customId === "radio_next") {
+              currentIndex = currentIndex + 1 >= radioStations.length ? 0 : currentIndex + 1;
+          } else {
+              currentIndex = currentIndex - 1 < 0 ? radioStations.length - 1 : currentIndex - 1;
+          }
+          
+          const newStation = radioStations[currentIndex];
+          
+          player.data.set("radioIndex", currentIndex);
+          player.data.set("radioName", newStation.name);
+          
+          try {
+              const res = await client.kazagumo.search(newStation.url, { requester: interaction.user });
+              if (res && res.tracks.length) {
+                  if (player.queue.length > 0) player.queue.clear();
+                  player.queue.add(res.tracks[0]);
+                  player.skip();
+                  await interaction.editReply(`📻 Mengganti stasiun ke **${newStation.name}**...`);
+                  setTimeout(() => interaction.deleteReply().catch(()=>{}), 5000);
+              } else {
+                  await interaction.editReply("❌ Gagal memuat stasiun.");
+              }
+          } catch (e) {
+              await interaction.editReply("❌ Gagal memuat stasiun (Error).");
+          }
+          break;
         case "volume":
           const modal = new ModalBuilder()
             .setCustomId("volume_modal")

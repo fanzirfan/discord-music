@@ -168,8 +168,14 @@ client.kazagumo.on("playerStart", async (player, track) => {
   const channel = client.channels.cache.get(player.textId);
   if (!channel) return;
   
+  const isRadio = player.data.get("isRadio");
+  const radioName = player.data.get("radioName");
+
+  const title = isRadio ? radioName : track.title;
+  const author = isRadio ? "Live Radio" : (track.author || "Unknown");
+
   try {
-    const statusText = `🎵 ${track.title}`;
+    const statusText = `🎵 ${title}`;
     await client.rest.put(`/channels/${player.voiceId}/voice-status`, {
       body: { status: statusText.substring(0, 500) }
     });
@@ -181,57 +187,86 @@ client.kazagumo.on("playerStart", async (player, track) => {
   
   const embed = new EmbedBuilder()
     .setTitle("🎵")
-    .setDescription(`**[${track.title}](${track.uri})**`)
+    .setDescription(`**[${title}](${track.uri})**`)
     .setColor(embedColor)
     .setThumbnail(track.thumbnail || null)
     .addFields(
-      { name: "👤 Artist", value: track.author || "Unknown", inline: true },
-      { name: "⏱️ Duration", value: track.length ? new Date(track.length).toISOString().substr(11, 8).replace(/^00:/, '') : "Stream", inline: true },
+      { name: "👤 Artist", value: author, inline: true },
+      { name: "⏱️ Duration", value: track.isStream ? "🔴 Live" : (track.length ? new Date(track.length).toISOString().substr(11, 8).replace(/^00:/, '') : "Unknown"), inline: true },
       { name: "🎭 Platform", value: track.sourceName === "youtube" ? "🔴 YouTube" : `${track.sourceName}`, inline: true },
       { name: "⚙️ Status", value: "▶️ Playing ⏳", inline: false }
     )
     .setFooter({ text: `Requested by ${track.requester?.tag || "Unknown"}` });
 
-  const row1 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("pause_resume")
-      .setLabel("Pause")
-      .setEmoji("⏸️")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId("skip")
-      .setLabel("Skip")
-      .setEmoji("⏭️")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId("stop")
-      .setLabel("Stop")
-      .setEmoji("⏹️")
-      .setStyle(ButtonStyle.Danger),
-    new ButtonBuilder()
-      .setCustomId("queue")
-      .setLabel("Queue")
-      .setEmoji("📋")
-      .setStyle(ButtonStyle.Primary),
-    new ButtonBuilder()
-      .setCustomId("shuffle")
-      .setLabel("Shuffle")
-      .setEmoji("🔀")
-      .setStyle(ButtonStyle.Secondary)
-  );
+  let components = [];
 
-  const row2 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("volume")
-      .setLabel("Volume")
-      .setEmoji("🔊")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId("loop")
-      .setLabel("Loop: Off")
-      .setEmoji("🔁")
-      .setStyle(ButtonStyle.Secondary)
-  );
+  if (isRadio) {
+    const radioRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("radio_prev")
+        .setLabel("Prev")
+        .setEmoji("⏮️")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId("stop")
+        .setLabel("Stop")
+        .setEmoji("⏹️")
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId("radio_next")
+        .setLabel("Next")
+        .setEmoji("⏭️")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId("volume")
+        .setLabel("Volume")
+        .setEmoji("🔊")
+        .setStyle(ButtonStyle.Secondary)
+    );
+    components = [radioRow];
+  } else {
+    const row1 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("pause_resume")
+        .setLabel("Pause")
+        .setEmoji("⏸️")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId("skip")
+        .setLabel("Skip")
+        .setEmoji("⏭️")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId("stop")
+        .setLabel("Stop")
+        .setEmoji("⏹️")
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId("queue")
+        .setLabel("Queue")
+        .setEmoji("📋")
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId("shuffle")
+        .setLabel("Shuffle")
+        .setEmoji("🔀")
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+    const row2 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("volume")
+        .setLabel("Volume")
+        .setEmoji("🔊")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId("loop")
+        .setLabel("Loop: Off")
+        .setEmoji("🔁")
+        .setStyle(ButtonStyle.Secondary)
+    );
+    components = [row1, row2];
+  }
 
   let sent = false;
   const oldMsgId = client.playerState[player.guildId];
@@ -239,7 +274,7 @@ client.kazagumo.on("playerStart", async (player, track) => {
     try {
       const msg = await channel.messages.fetch(oldMsgId);
       if (msg) {
-        await msg.edit({ embeds: [embed], components: [row1, row2] });
+        await msg.edit({ embeds: [embed], components: components });
         sent = true;
       }
     } catch (e) {
@@ -248,7 +283,7 @@ client.kazagumo.on("playerStart", async (player, track) => {
   }
 
   if (!sent) {
-    const newMsg = await channel.send({ embeds: [embed], components: [row1, row2] });
+    const newMsg = await channel.send({ embeds: [embed], components: components });
     client.playerState[player.guildId] = newMsg.id;
     client.savePlayerState();
   }
